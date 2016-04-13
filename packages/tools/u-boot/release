@@ -47,4 +47,7 @@ mkdir -p $RELEASE_DIR/3rdparty/bootloader
         cp -PR $DISTRO_DIR/$DISTRO/splash/boot-logo.bmp.gz $RELEASE_DIR/3rdparty/bootloader
       fi
       ;;
+    Allwinner)
+      cp -PR $BUILD/$BOOTLOADER-*/u-boot-sunxi-with-spl.bin $RELEASE_DIR/3rdparty/bootloader/
+      ;;
   esac
