@@ -18,31 +18,73 @@
 
 PKG_NAME="grub"
 PKG_VERSION="2.02"
-PKG_SHA256="4ff6999add483bf640e130bc076ca1464901b4677ee01297901b40fe55de03c4"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://www.gnu.org/software/grub/index.html"
 PKG_URL="http://git.savannah.gnu.org/cgit/grub.git/snapshot/$PKG_NAME-$PKG_VERSION.tar.gz"
-PKG_DEPENDS_TARGET="toolchain flex freetype:host"
+PKG_DEPENDS_HOST="freetype"
+PKG_DEPENDS_TARGET="toolchain flex freetype:host grub:host"
 PKG_SECTION="tools"
 PKG_SHORTDESC="GNU GRUB is a Multiboot boot loader."
 PKG_LONGDESC="GNU GRUB is a Multiboot boot loader that was derived from GRUB, the GRand Unified Bootloader, which was originally designed and implemented by Erich Stefan Boleyn"
-PKG_AUTORECONF="no"
 
-PKG_CONFIGURE_OPTS_TARGET="--target=i386-pc-linux \
-                           --disable-nls \
-                           --with-platform=efi"
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="no"
 
   unset CFLAGS
   unset CPPFLAGS
   unset CXXFLAGS
   unset LDFLAGS
 
+pre_build_host() {
+  mkdir -p $PKG_BUILD/.$HOST_NAME
+  cp -RP $PKG_BUILD/* $PKG_BUILD/.$HOST_NAME
+}
+
+pre_build_target() {
+  mkdir -p $PKG_BUILD/.$TARGET_NAME
+  cp -RP $PKG_BUILD/* $PKG_BUILD/.$TARGET_NAME
+}
+
+pre_configure_host() {
+  unset CPP
+  strip_lto
+  cd $PKG_BUILD/.$HOST_NAME
+     ./autogen.sh
+}
+
 pre_configure_target() {
   unset CPP
   strip_lto
-  cd $PKG_BUILD
+  cd $PKG_BUILD/.$TARGET_NAME
      ./autogen.sh
+}
+
+configure_host() {
+     ./configure --disable-nls \
+                 --with-platform=efi
+}
+
+configure_target() {
+     ./configure --target=i386-pc-linux \
+                 --disable-nls \
+                 --with-platform=efi
+}
+
+pre_make_host() {
+  cd $PKG_BUILD/.$HOST_NAME
+}
+
+pre_make_target() {
+  cd $PKG_BUILD/.$TARGET_NAME
+}
+
+make_host() {
+  make CC=$CC \
+       AR=$AR \
+       RANLIB=$RANLIB \
+       CFLAGS="-I$TOOLCHAIN/include" \
+       LDFLAGS="-L$TOOLCHAIN/lib"
 }
 
 make_target() {
@@ -53,16 +95,26 @@ make_target() {
        LDFLAGS="-L$SYSROOT_PREFIX/usr/lib"
 }
 
-makeinstall_target() {
-  cd $PKG_BUILD/grub-core
-     $PKG_BUILD/grub-mkimage -d . -o bootia32.efi -O i386-efi -p /EFI/BOOT \
+makeinstall_host() {
+  cd $PKG_BUILD/.$HOST_NAME/grub-core
+     $PKG_BUILD/.$HOST_NAME/grub-mkimage -d . -o bootx64.efi -O x86_64-efi -p /EFI/BOOT \
                                 boot chain configfile ext2 fat linux search \
                                 efi_gop efi_uga part_gpt gzio \
-                                gettext loadenv loadbios memrw
+                                gettext loadenv loadbios memrw hfs hfsplus msdospart
+}
+
+makeinstall_target() {
+  cd $PKG_BUILD/.$TARGET_NAME/grub-core
+     $PKG_BUILD/.$TARGET_NAME/grub-mkimage -d . -o bootia32.efi -O i386-efi -p /EFI/BOOT \
+                                boot chain configfile ext2 fat linux search \
+                                efi_gop efi_uga part_gpt gzio \
+                                gettext loadenv loadbios memrw hfs hfsplus msdospart
 
   mkdir -p $INSTALL/usr/share/grub
-     cp -P $PKG_BUILD/grub-core/bootia32.efi $INSTALL/usr/share/grub
+     cp -P $PKG_BUILD/.$TARGET_NAME/grub-core/bootia32.efi $INSTALL/usr/share/grub
+     cp -P $PKG_BUILD/.$HOST_NAME/grub-core/bootx64.efi $INSTALL/usr/share/grub
 
   mkdir -p $TOOLCHAIN/share/grub
-     cp -P $PKG_BUILD/grub-core/bootia32.efi $TOOLCHAIN/share/grub
+     cp -P $PKG_BUILD/.$TARGET_NAME/grub-core/bootia32.efi $TOOLCHAIN/share/grub
+     cp -P $PKG_BUILD/.$HOST_NAME/grub-core/bootx64.efi $TOOLCHAIN/share/grub
 }
